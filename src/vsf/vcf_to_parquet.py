@@ -61,6 +61,7 @@ def get_vcf_headers(vcf, numHeaderLines=1000):
             .collect()[0]['_c0'][1:]
             .split('\t')
     )
+    
 def chr_vcf_to_spark_df(vcfs, limit=0):
     """
     combine a list of vcf files (one per chromosome) into one spark df

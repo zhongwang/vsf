@@ -1,0 +1,14 @@
+{
+  "_output_dir": "/home/ubuntu/data/vsf",
+  "_template": "gh:cjolowicz/cookiecutter-hypermodern-python",
+  "author": "Zhong Wang",
+  "copyright_year": "2023",
+  "development_status": "Development Status :: 1 - Planning",
+  "email": "oboezw@gmail.com",
+  "friendly_name": "VariantSparseFormat",
+  "github_user": "zhongwang",
+  "license": "MIT",
+  "package_name": "vsf",
+  "project_name": "vsf",
+  "version": "0.0.0"
+}
