@@ -28,11 +28,11 @@ def get_vcf_headers(vcf, numHeaderLines=1000):
             .split('\t')
     )
 
-def vcf_to_parquet(output, vcfs, format='gvcf', partitions=200, limit=0):
+def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
     """_convert vcf to parquet_
 
     Args:
-        output (_str_): _output parquet file_
+        output (_str_): _output parquet file_, if empty, return dataframe
         vcfs (_list(str)_): _a list of vcf files_
         format (str, optional): _genotype vcf (gvcf) or dbSNP (dbsnp)_. Defaults to 'gvcf'.
         paritions (int, optional): _number of partitions_. Defaults to 200.
@@ -74,16 +74,18 @@ def vcf_to_parquet(output, vcfs, format='gvcf', partitions=200, limit=0):
         else:
             all_vcf = all_vcf.unionByName(vcf_c, allowMissingColumns=True)  
         
-    print("Totally we added %d records." % all_vcf.count())       
+    print("Totally we added %d records." % all_vcf.count())
+    if output == '':
+        return all_vcf       
     all_vcf.repartition(partitions).write.mode('overwrite').parquet(output)
     
-def update_rsID(dbsnp, in_vcf, out_vcf):
+def update_rsID(dbsnp, in_vcf, out_vcf=''):
         """_update to latest rsIDs in dbSNP based on chrom and position_
 
         Args:
             dbsnp (_str_): _dbSNP vnf in parquet_
             in_vcf (_str_): _input vcf in parquet_
-            out_vcf (_str_): _output vcf in parquet_
+            out_vcf (_str_): _output vcf in parquet, if empty, return dataframe_
         """
 
         dbsnp = (spark
@@ -97,11 +99,12 @@ def update_rsID(dbsnp, in_vcf, out_vcf):
                 .withColumnRenamed('ID', 'oldID')
                 .join(dbsnp, on=['CHROM', 'POS'], how='left')
                 )
-
+        if out_vcf == '':
+            return all_vcf
         all_vcf.write.mode('overwrite').parquet(out_vcf)  
         
 
-def allele_encoding(dbsnp, in_gvcf, code_mappings):
+def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
   """_map alleles codes to dbSNP codes_
 
   Args:
@@ -121,16 +124,11 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings):
   .join(dbsnp.select(F.col('rsID').alias('ID'), 'code', 'allele'), on=['ID', 'allele'])
   .drop('allele')
   )
-
+  if code_mappings == '':
+      return code
   code.write.mode('overwrite').parquet(code_mappings)
         
 def gvcf_to_vsf(gvcf, vsf):
-      """_convert gvcf to vsf_
-
-  Args:
-      gvcf (_str_): _gvcf in parquet format_
-      vsf (_type_): _vsf in parquet format_
-  """
   
   genomes = spark.read.parquet(gvcf)
   samples = genomes.columns[9:-1]
