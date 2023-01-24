@@ -124,7 +124,7 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
       return code
   code.write.mode('overwrite').parquet(code_mappings)
         
-def gvcf_to_vsf(gvcf, vsf):
+def gvcf_to_vsf(gvcf, vsf=''):
   
   samples = gvcf.columns[9:-1]
   # split alleles
