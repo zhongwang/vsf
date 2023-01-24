@@ -174,5 +174,5 @@ def gvcf_to_vsf(gvcf, vsf=''):
         .agg(F.sum('dose').alias('dose'))
       )
   if vsf == '':
-      return vsf 
+      return gt 
   gt.write.mode('overwrite').parquet(vsf)
