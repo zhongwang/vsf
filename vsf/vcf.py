@@ -173,6 +173,8 @@ def gvcf_to_vsf(gvcf, vsf=''):
         .groupby('sample', 'rsID', 'code')
         .agg(F.sum('dose').alias('dose'))
       )
+
   if vsf == '':
-      return gt 
+      return gt
+ 
   gt.write.mode('overwrite').parquet(vsf)

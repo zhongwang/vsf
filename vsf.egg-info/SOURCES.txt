@@ -1,0 +1,16 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+tests/__init__.py
+tests/test_main.py
+vsf/__init__.py
+vsf/__main__.py
+vsf/gwas.py
+vsf/prs.py
+vsf/utils.py
+vsf/vcf.py
+vsf.egg-info/PKG-INFO
+vsf.egg-info/SOURCES.txt
+vsf.egg-info/dependency_links.txt
+vsf.egg-info/top_level.txt
