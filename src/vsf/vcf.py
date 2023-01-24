@@ -50,16 +50,16 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
                 .csv(vcf, sep='\t', header=None, comment='#')
                 .toDF('chr', 'pos', 'rsID', 'ref', 'alt', 'q1', 'q2', 'annot')
                 .select(
-                F.regexp_extract('chr', r'NC_0+(\d+).', 1).astype('int').alias('chr'),
+                F.regexp_extract('chr', r'NC_0+(\d+).', 1).alias('chr'), # beware of empty string 
                 F.col('pos').astype('long'),
                 F.regexp_extract('rsID', r'rs(\d+)', 1).astype('long').alias('rsID'),
                 F.posexplode(F.split(F.concat_ws(',', 'ref', 'alt'), ',')).alias('code', 'allele')                         
                 )
-                .drop_duplicates(['chr', 'pos', 'allele', 'rsID'])
-                .where(F.col('chr')>0)         
+                .where(F.col('chr') != '') 
+                .drop_duplicates(['chr', 'pos', 'allele', 'rsID'])                   
                 )
             # change letter chromosome IDs to numerical
-            vcf_c = vcf_c.withColumn('CHROM', apply_mapping_udf('CHROM').astype('int'))
+            vcf_c = vcf_c.withColumn('chr', chr_mapping[vcf_c['chr']])
         elif format == 'gvcf':   
             headers = get_vcf_headers(vcf)
             if limit>0:
@@ -83,14 +83,12 @@ def update_rsID(dbsnp, in_vcf, out_vcf=''):
         """_update to latest rsIDs in dbSNP based on chrom and position_
 
         Args:
-            dbsnp (_str_): _dbSNP vnf in parquet_
-            in_vcf (_str_): _input vcf in parquet_
+            dbsnp (_str_): _dbSNP vnf dataframe_
+            in_vcf (_str_): _input vcf dataframe_
             out_vcf (_str_): _output vcf in parquet, if empty, return dataframe_
         """
 
-        dbsnp = (spark
-        .read
-        .parquet(dbsnp)
+        dbsnp = (dbsnp
         .select(F.col('chr').alias('CHROM'), F.col('pos').alias('POS'), F.col('rsID').alias('ID'))
         .drop_duplicates(['CHROM', 'POS'])
         )    
@@ -108,14 +106,12 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
   """_map alleles codes to dbSNP codes_
 
   Args:
-      dbsnp (_type_): _dbSNP parquet file_
-      in_gvcf (_type_): _input gVCF parquet file_
+      dbsnp (_type_): _dbSNP dataframe_
+      in_gvcf (_type_): _input gVCF dataframe_
       code_mappings (_type_): _a map from gVCF allele to dbSNP allele_
   """
-  genomes = spark.read.parquet(in_gvcf)
-  dbsnp = spark.read.parquet(dbsnp)
 
-  code = (genomes
+  code = (in_gvcf
   .select(
     F.col('ID').astype('long'),
     F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
@@ -130,10 +126,9 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
         
 def gvcf_to_vsf(gvcf, vsf):
   
-  genomes = spark.read.parquet(gvcf)
-  samples = genomes.columns[9:-1]
+  samples = gvcf.columns[9:-1]
   # split alleles
-  a1 = (genomes
+  a1 = (gvcf
         .select(
           'ID',
           *((F.split(c, '\|').getItem(0).astype('int').alias(c) for c in samples))
@@ -143,7 +138,7 @@ def gvcf_to_vsf(gvcf, vsf):
         .select('ID', 'gts')
       )
 
-  a2 = (genomes
+  a2 = (gvcf
         .select(
           'ID',
           *((F.split(c, '\|').getItem(1).astype('int').alias(c) for c in samples))
@@ -178,5 +173,6 @@ def gvcf_to_vsf(gvcf, vsf):
         .groupby('sample', 'rsID', 'code')
         .agg(F.sum('dose').alias('dose'))
       )
-
+  if vsf == '':
+      return vsf 
   gt.write.mode('overwrite').parquet(vsf)

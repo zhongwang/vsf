@@ -30,7 +30,8 @@ def gwas_csv_to_parquet(gwas, output=''):
           (F.col('OR')>0.0)
         )
   )
-  ref = ref.withColumn('chr', apply_mapping_udf('chr').astype('int'))
+  ref = ref.withColumn('chr', chr_mapping[ref['chr']])
+
   if output == '':
         return ref
   (ref
