@@ -70,13 +70,12 @@ def gwas_fill_rsID(dbsnp, ref, out_file='', overwrite=False):
       return ref
   ref.write.mode('overwrite').parquet(out_file)
 
-def gwas_add_code(dbsnp, ref, codemapping=None, out_file=''):
+def gwas_add_code(dbsnp, ref, out_file=''):
   """_summary_
 
   Args:
       dbsnp (_type_): _description_
       ref (_type_): _description_
-      codemapping (_type_, optional): _description_. Defaults to None.
       out_file (str, optional): _description_. Defaults to ''.
 
   Returns:
@@ -86,26 +85,32 @@ def gwas_add_code(dbsnp, ref, codemapping=None, out_file=''):
   ref = (
     ref
     .join(dbsnp.select('rsID', F.col('allele').alias('alt'),'code'), on=['rsID', 'alt'], how='left')
-    .fillna({'code':0})
+    .na.drop() # drop alts that are not in dbSNP
   )
-  if codemapping:
-    # mapping ref codes to 1kgenome codes
-    ref = ref.join(codemapping.select(F.col('ID').alias('rsID'), 'code', 'code1k'), on=['rsID', 'code'], how='left').fillna(0)
     
   # add index
-    ref = ref.withColumn('index', F.concat_ws('|', *['trait', 'pubmedID']))
-    rindex = ref.select('index')
-    indexer = StringIndexer(inputCol='index', outputCol='i').fit(rindex)
-    ref = indexer.transform(ref).join(rindex, on='index', how='left')
+  ref = ref.withColumn('index', F.concat_ws('|', *['trait', 'pubmedID']))
+  rindex = ref.select('index')
+  indexer = StringIndexer(inputCol='index', outputCol='i').fit(rindex)
+  ref = indexer.transform(ref).join(rindex, on='index', how='left').drop_duplicates(['index', 'rsID', 'code'])
   if out_file == '':
       return ref
   ref.write.mode('overwrite').parquet(out_file)      
 
-def gwas_to_vsf(gwas, rvsf=''):
-  gwas = gwas.select('i', 'rsID', 'code1k', 'OR')
-  if rvsf == '':
+def gwas_to_vsf(gwas, code_mapping='', rvsf=''):
+    gwas = gwas.select(F.col('i').astype('int'), 'rsID', 'code', 'OR')
+    if code_mapping != '':
+        # mapping ref codes to 1kgenome codes
+        gwas = (gwas
+                .join(code_mapping.select(F.col('ID').alias('rsID'), 'code', 'code1k'), on=['rsID', 'code'], how='left')
+                .fillna({'code1k':0})
+                .drop('code')
+                .withColumnRenamed('code1k', 'code')
+        )
+
+    if rvsf == '':
         return gwas
-  gwas.write.mode('overwrite').parquet(rvsf)
+    gwas.write.mode('overwrite').parquet(rvsf)
  
 
 

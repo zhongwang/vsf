@@ -1,8 +1,5 @@
 """Command-line interface."""
-import os
-import sys
 
-sys.path.append('../')
 import click
 from vsf.gwas import *
 from vsf.vcf import *

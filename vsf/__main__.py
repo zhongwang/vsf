@@ -1,8 +1,5 @@
 """Command-line interface."""
-import os
-import sys
 
-sys.path.append('../')
 import click
 from vsf.gwas import *
 from vsf.vcf import *
@@ -39,6 +36,12 @@ def main() -> None:
     codemapping.show(2)
     gwas = gwas_add_code(dbsnp, gwas, codemapping)
     gwas.show(2)
+    # convert to vsf format
+    rvsf = gwas_to_vsf(gwas, code_mapping=code_mapping)
+    rvsf.show(2)
+    # calculate PRS
+    results = cal_PRS(gvsf, rvsf, output='', broadcast=True)
+    results.show()
 
 if __name__ == "__main__":
     main(prog_name="vsf")  # pragma: no cover

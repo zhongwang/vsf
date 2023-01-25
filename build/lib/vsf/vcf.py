@@ -117,15 +117,15 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
     F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
   )
   .select('ID', F.col('code1k').astype('int'), 'allele')
-  .join(dbsnp.select(F.col('rsID').alias('ID'), 'code', 'allele'), on=['ID', 'allele'])
+  .join(dbsnp.select(F.col('rsID').alias('ID'), F.col('code').astype('int'), 'allele'), on=['ID', 'allele'])
   .drop('allele')
   )
   if code_mappings == '':
       return code
   code.write.mode('overwrite').parquet(code_mappings)
         
-def gvcf_to_vsf(gvcf, vsf=''):
-  
+def gvcf_to_vsf(gvcf, vsf='', code_mapping=''):
+  # code is derived from gvcf
   samples = gvcf.columns[9:-1]
   # split alleles
   a1 = (gvcf
@@ -169,11 +169,19 @@ def gvcf_to_vsf(gvcf, vsf=''):
   gt = a1.union(a2)
   gt = (gt
         .withColumn('dose', F.lit(1.0))
-        .select('sample', 'rsID', 'code', 'dose')
+        .select('sample', 'rsID', F.col('code').astype('int'), 'dose')
         .groupby('sample', 'rsID', 'code')
         .agg(F.sum('dose').alias('dose'))
       )
-
+  
+  
+  if code_mapping != '':
+      gt = (gt
+            .withColumnRenamed('code', 'code1k')
+            .join(code_mapping.select(F.col('ID').alias('rsID'), 'code', 'code1k'), on=['rsID', 'code1k'], how='left')
+            .drop('code1k')
+            .fillna({'code':0})
+      ) 
   if vsf == '':
       return gt
  
