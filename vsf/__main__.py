@@ -3,8 +3,10 @@
 import click
 from vsf.gwas import *
 from vsf.vcf import *
-# testing datasets
-prefix = 'dbfs:/mnt/zhong-active/PGS'
+from vsf.prs import *
+
+# small testing datasets, no need to use intermediate files
+prefix = 's3://share.jgi-ga.org/vsf/test'
 dbsnp_test_file = prefix + '/dbsnp_test.csv.gz'
 gvcf_test_file = prefix + '/gvcf_test.vcf.gz'
 gwas_test_file = prefix + '/gwas_test.csv.gz'
@@ -32,15 +34,12 @@ def main() -> None:
     gwas = gwas_fill_rsID(dbsnp, gwas)
     gwas.show(2)
     # mapping code to gvcf
-    codemapping = allele_encoding(dbsnp, in_gvcf=gvcf)
-    codemapping.show(2)
-    gwas = gwas_add_code(dbsnp, gwas, codemapping)
+    code_mapping = allele_encoding(dbsnp, in_gvcf=gvcf)
+    code_mapping.show(2)
+    gwas = gwas_add_code(dbsnp, gwas, code_mapping=code_mapping)
     gwas.show(2)
-    # convert to vsf format
-    rvsf = gwas_to_vsf(gwas, code_mapping=code_mapping)
-    rvsf.show(2)
     # calculate PRS
-    results = cal_PRS(gvsf, rvsf, output='', broadcast=True)
+    results = cal_PRS(gvsf, gwas)
     results.show()
 
 if __name__ == "__main__":

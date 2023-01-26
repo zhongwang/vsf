@@ -1,7 +1,5 @@
-# only need to run this once
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
-from pyspark.ml.feature import StringIndexer
 
 from vsf.utils import *
 
@@ -11,7 +9,7 @@ def gwas_csv_to_parquet(gwas, output=''):
   """_convert gwas result file to parquet_
 
   Args:
-      gwas (_string_): _description_
+      gwas (_string_): _gwas input file in csv format_
       output (_string_): _output file_, if empty, return the dataframe
   """
 
@@ -43,7 +41,7 @@ def gwas_csv_to_parquet(gwas, output=''):
   )
 
 def gwas_fill_rsID(dbsnp, ref, out_file='', overwrite=False):
-  """_summary_
+  """_update gwas rsID with those found in dbSNP_
 
   Args:
       dbsnp (_type_): _description_
@@ -70,47 +68,38 @@ def gwas_fill_rsID(dbsnp, ref, out_file='', overwrite=False):
       return ref
   ref.write.mode('overwrite').parquet(out_file)
 
-def gwas_add_code(dbsnp, ref, out_file=''):
-  """_summary_
+def gwas_add_code(dbsnp, ref, code_mapping='', out_file=''):
+    """_summary_
 
-  Args:
-      dbsnp (_type_): _description_
-      ref (_type_): _description_
-      out_file (str, optional): _description_. Defaults to ''.
+    Args:
+        dbsnp (_type_): _description_
+        ref (_type_): _description_
+        code_mapping (_type_): _description_
+        out_file (str, optional): _description_. Defaults to ''.
 
-  Returns:
-      _type_: _description_
-  """
+    Returns:
+        _type_: _description_
+    """
 
-  ref = (
-    ref
-    .join(dbsnp.select('rsID', F.col('allele').alias('alt'),'code'), on=['rsID', 'alt'], how='left')
-    .na.drop() # drop alts that are not in dbSNP
-  )
-    
-  # add index
-  ref = ref.withColumn('index', F.concat_ws('|', *['trait', 'pubmedID']))
-  rindex = ref.select('index')
-  indexer = StringIndexer(inputCol='index', outputCol='i').fit(rindex)
-  ref = indexer.transform(ref).join(rindex, on='index', how='left').drop_duplicates(['index', 'rsID', 'code'])
-  if out_file == '':
-      return ref
-  ref.write.mode('overwrite').parquet(out_file)      
-
-def gwas_to_vsf(gwas, code_mapping='', rvsf=''):
-    gwas = gwas.select(F.col('i').astype('int'), 'rsID', 'code', 'OR')
+    ref = (
+      ref
+      .join(dbsnp.select('rsID', F.col('allele').alias('alt'),'code'), on=['rsID', 'alt'], how='left')
+      .na.drop() # drop alts that are not in dbSNP
+    )
     if code_mapping != '':
-        # mapping ref codes to 1kgenome codes
-        gwas = (gwas
+          # mapping ref codes to 1kgenome codes
+        ref = (ref
                 .join(code_mapping.select(F.col('ID').alias('rsID'), 'code', 'code1k'), on=['rsID', 'code'], how='left')
                 .fillna({'code1k':0})
                 .drop('code')
                 .withColumnRenamed('code1k', 'code')
+                .distinct()
         )
+      
+    if out_file == '':
+        return ref
+    ref.write.mode('overwrite').parquet(out_file)      
 
-    if rvsf == '':
-        return gwas
-    gwas.write.mode('overwrite').parquet(rvsf)
  
 
 
