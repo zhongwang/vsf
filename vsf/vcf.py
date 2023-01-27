@@ -119,27 +119,27 @@ def update_rsID(dbsnp, in_vcf, out_vcf='', keep=False):
         
 
 def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
-  """_map alleles codes in gGVCF to dbSNP codes_
-  The result is a mapping from gGVF code('code1k') to dbSNP code ('code'), which later will be used to transform codes back and forth.
-  
-  Args:
-      dbsnp (_dataframe_): _dbSNP dataframe_
-      in_gvcf (_dataframe_): _input gVCF dataframe_
-      code_mappings (_any_): _file name to store the map from gVCF allele to dbSNP allele, if empty, return the dataframe_
-  """
+    """_map alleles codes in gGVCF to dbSNP codes_
+    The result is a mapping from gGVF code('code1k') to dbSNP code ('code'), which later will be used to transform codes back and forth.
+    
+    Args:
+        dbsnp (_dataframe_): _dbSNP dataframe_
+        in_gvcf (_dataframe_): _input gVCF dataframe_
+        code_mappings (_any_): _file name to store the map from gVCF allele to dbSNP allele, if empty, return the dataframe_
+    """
 
-  code = (in_gvcf
-  .select(
-    F.col('ID').astype('long'),
-    F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
-  )
-  .select('ID', F.col('code1k').astype('int'), 'allele')
-  .join(dbsnp.select(F.col('rsID').alias('ID'), F.col('code').astype('int'), 'allele'), on=['ID', 'allele'])
-  .drop('allele')
-  )
-  if code_mappings == '':
-      return code
-  code.write.mode('overwrite').parquet(code_mappings)
+    code = (in_gvcf
+    .select(
+        F.col('ID').astype('long'),
+        F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
+    )
+    .select('ID', F.col('code1k').astype('int'), 'allele')
+    .join(dbsnp.select(F.col('rsID').alias('ID'), F.col('code').astype('int'), 'allele'), on=['ID', 'allele'])
+    .drop('allele')
+    )
+    if code_mappings == '':
+        return code
+    code.write.mode('overwrite').parquet(code_mappings)
         
 def gvcf_to_vsf(gvcf, output='', min_quality=0, filter=False, code_mapping=''):
     """_convert gVCF to sparse gVSF format_
