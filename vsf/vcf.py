@@ -56,6 +56,7 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
             vcf_c =(spark
                 .read
                 .csv(vcf, sep='\t', header=None, comment='#')
+                .repartition(partitions)    
                 .toDF('chr', 'pos', 'rsID', 'ref', 'alt', 'q1', 'q2', 'annot')
                 .select(
                 F.regexp_extract('chr', r'NC_0+(\d+).', 1).alias('chr'), # beware of empty string 
@@ -72,9 +73,9 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
         elif format == 'gvcf':   
             headers = get_vcf_headers(vcf)
             if limit>0:
-                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers)
+                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers).repartition(partitions)
             else:
-                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers)
+                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers).repartition(partitions)
         else:
             raise Exception("vcf format: " + format + " is not supported.")
 
@@ -140,7 +141,7 @@ def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
       return code
   code.write.mode('overwrite').parquet(code_mappings)
         
-def gvcf_to_vsf(gvcf, vsf='', min_quality=0, filter=False, code_mapping=''):
+def gvcf_to_vsf(gvcf, output='', min_quality=0, filter=False, code_mapping=''):
     """_convert gVCF to sparse gVSF format_
     
     Args:
@@ -224,7 +225,7 @@ def gvcf_to_vsf(gvcf, vsf='', min_quality=0, filter=False, code_mapping=''):
     sample_mapping = F.create_map([F.lit(x) for x in chain(*names.items())])
     gt = gt.withColumn('sample_name', sample_mapping[gt['sample']] ) 
         
-    if vsf == '':
+    if output == '':
         return gt
     
-    gt.write.mode('overwrite').parquet(vsf)
+    gt.write.mode('overwrite').parquet(output)
