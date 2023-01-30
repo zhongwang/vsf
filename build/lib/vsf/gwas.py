@@ -40,35 +40,35 @@ def gwas_csv_to_parquet(gwas, output=''):
   .parquet(output)
   )
 
-def gwas_fill_rsID(dbsnp, ref, out_file='', overwrite=False):
-  """_update gwas rsID with those found in dbSNP_
+def gwas_fill_rsID(dbsnp, ref, output='', overwrite=False):
+    """_update gwas rsID with those found in dbSNP_
 
-  Args:
-      dbsnp (_type_): _description_
-      ref (_type_): _description_
-      out_file (str, optional): _description_. Defaults to ''.
-      overwrite (bool, optional): _description_. Defaults to False.
+    Args:
+        dbsnp (_type_): _description_
+        ref (_type_): _description_
+        out_file (str, optional): _description_. Defaults to ''.
+        overwrite (bool, optional): _description_. Defaults to False.
 
-  Returns:
-      _type_: _description_
-  """
+    Returns:
+        _type_: _description_
+    """
 
-  ref = (ref
-        .join(dbsnp.select('chr', 'pos', F.col('rsID').alias('newID')), on=['chr', 'pos'], how='left')
-  )
-  if overwrite:
-      ref = ref.drop('rsID').withColumnRenamed('newID', 'rsID')     
-  else:
-      ref = (ref
-        .withColumn('rsID', F.when(F.isnull('rsID'), F.col('newID')).otherwise(F.col('rsID')))
-        .drop('newID')
-        )               
-  ref = ref.drop_duplicates(['trait', 'rsID', 'alt'])
-  if out_file == '':
-      return ref
-  ref.write.mode('overwrite').parquet(out_file)
+    ref = (ref
+          .join(dbsnp.select('chr', 'pos', F.col('rsID').alias('newID')), on=['chr', 'pos'], how='left')
+    )
+    if overwrite:
+        ref = ref.drop('rsID').withColumnRenamed('newID', 'rsID')     
+    else:
+        ref = (ref
+          .withColumn('rsID', F.when(F.isnull('rsID'), F.col('newID')).otherwise(F.col('rsID')))
+          .drop('newID')
+          )               
+    ref = ref.drop_duplicates(['trait', 'rsID', 'alt'])
+    if output == '':
+        return ref
+    ref.write.mode('overwrite').parquet(output)
 
-def gwas_add_code(dbsnp, ref, code_mapping='', out_file=''):
+def gwas_add_code(dbsnp, ref, code_mapping='', output=''):
     """_summary_
 
     Args:
@@ -96,9 +96,9 @@ def gwas_add_code(dbsnp, ref, code_mapping='', out_file=''):
                 .distinct()
         )
       
-    if out_file == '':
+    if output == '':
         return ref
-    ref.write.mode('overwrite').parquet(out_file)      
+    ref.write.mode('overwrite').parquet(output)      
 
  
 

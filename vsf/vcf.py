@@ -36,13 +36,13 @@ def get_vcf_headers(vcf, numHeaderLines=1000):
             .split('\t')
     )
 
-def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
+def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, limit=0):
     """_convert vcf to parquet_
 
     Args:
         vcfs (_list(str)_): _a list of vcf files_
         output (_str_): _output parquet file_, if empty, return dataframe
-        format (str, optional): _genotype vcf (gvcf) or dbSNP (dbsnp)_. Defaults to 'gvcf'.
+        format (str, optional): _parquet (pq), genotype vcf (gvcf) or dbSNP (dbsnp)_. Defaults to 'pq'.
         paritions (int, optional): _number of partitions_. Defaults to 200.
         limit (int, optional): _number of lines to read_. Defaults to 0, read all lines.
 
@@ -76,6 +76,9 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
                 vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers).repartition(partitions)
             else:
                 vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers).repartition(partitions)
+        elif format == 'pq':
+            vcf_c = spark.read.parquet(vcf).repartition(partitions) 
+        
         else:
             raise Exception("vcf format: " + format + " is not supported.")
 

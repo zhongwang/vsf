@@ -5,7 +5,6 @@ setup.py
 tests/__init__.py
 tests/test_main.py
 vsf/__init__.py
-vsf/__main__.py
 vsf/gwas.py
 vsf/prs.py
 vsf/utils.py

@@ -36,13 +36,13 @@ def get_vcf_headers(vcf, numHeaderLines=1000):
             .split('\t')
     )
 
-def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
+def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, limit=0):
     """_convert vcf to parquet_
 
     Args:
         vcfs (_list(str)_): _a list of vcf files_
         output (_str_): _output parquet file_, if empty, return dataframe
-        format (str, optional): _genotype vcf (gvcf) or dbSNP (dbsnp)_. Defaults to 'gvcf'.
+        format (str, optional): _parquet (pq), genotype vcf (gvcf) or dbSNP (dbsnp)_. Defaults to 'pq'.
         paritions (int, optional): _number of partitions_. Defaults to 200.
         limit (int, optional): _number of lines to read_. Defaults to 0, read all lines.
 
@@ -56,6 +56,7 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
             vcf_c =(spark
                 .read
                 .csv(vcf, sep='\t', header=None, comment='#')
+                .repartition(partitions)    
                 .toDF('chr', 'pos', 'rsID', 'ref', 'alt', 'q1', 'q2', 'annot')
                 .select(
                 F.regexp_extract('chr', r'NC_0+(\d+).', 1).alias('chr'), # beware of empty string 
@@ -72,9 +73,12 @@ def vcf_to_parquet(vcfs, output='', format='gvcf', partitions=200, limit=0):
         elif format == 'gvcf':   
             headers = get_vcf_headers(vcf)
             if limit>0:
-                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers)
+                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers).repartition(partitions)
             else:
-                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers)
+                vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers).repartition(partitions)
+        elif format == 'pq':
+            vcf_c = spark.read.parquet(vcf)
+        
         else:
             raise Exception("vcf format: " + format + " is not supported.")
 
@@ -118,29 +122,29 @@ def update_rsID(dbsnp, in_vcf, out_vcf='', keep=False):
         
 
 def allele_encoding(dbsnp, in_gvcf, code_mappings=''):
-  """_map alleles codes in gGVCF to dbSNP codes_
-  The result is a mapping from gGVF code('code1k') to dbSNP code ('code'), which later will be used to transform codes back and forth.
-  
-  Args:
-      dbsnp (_dataframe_): _dbSNP dataframe_
-      in_gvcf (_dataframe_): _input gVCF dataframe_
-      code_mappings (_any_): _file name to store the map from gVCF allele to dbSNP allele, if empty, return the dataframe_
-  """
+    """_map alleles codes in gGVCF to dbSNP codes_
+    The result is a mapping from gGVF code('code1k') to dbSNP code ('code'), which later will be used to transform codes back and forth.
+    
+    Args:
+        dbsnp (_dataframe_): _dbSNP dataframe_
+        in_gvcf (_dataframe_): _input gVCF dataframe_
+        code_mappings (_any_): _file name to store the map from gVCF allele to dbSNP allele, if empty, return the dataframe_
+    """
 
-  code = (in_gvcf
-  .select(
-    F.col('ID').astype('long'),
-    F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
-  )
-  .select('ID', F.col('code1k').astype('int'), 'allele')
-  .join(dbsnp.select(F.col('rsID').alias('ID'), F.col('code').astype('int'), 'allele'), on=['ID', 'allele'])
-  .drop('allele')
-  )
-  if code_mappings == '':
-      return code
-  code.write.mode('overwrite').parquet(code_mappings)
+    code = (in_gvcf
+    .select(
+        F.col('ID').astype('long'),
+        F.posexplode(F.split(F.concat_ws(',', 'REF', 'ALT'), ',')).alias('code1k', 'allele') 
+    )
+    .select('ID', F.col('code1k').astype('int'), 'allele')
+    .join(dbsnp.select(F.col('rsID').alias('ID'), F.col('code').astype('int'), 'allele'), on=['ID', 'allele'])
+    .drop('allele')
+    )
+    if code_mappings == '':
+        return code
+    code.write.mode('overwrite').parquet(code_mappings)
         
-def gvcf_to_vsf(gvcf, vsf='', min_quality=0, filter=False, code_mapping=''):
+def gvcf_to_vsf(gvcf, output='', min_quality=0, filter=False, code_mapping=''):
     """_convert gVCF to sparse gVSF format_
     
     Args:
@@ -224,7 +228,7 @@ def gvcf_to_vsf(gvcf, vsf='', min_quality=0, filter=False, code_mapping=''):
     sample_mapping = F.create_map([F.lit(x) for x in chain(*names.items())])
     gt = gt.withColumn('sample_name', sample_mapping[gt['sample']] ) 
         
-    if vsf == '':
+    if output == '':
         return gt
     
-    gt.write.mode('overwrite').parquet(vsf)
+    gt.write.mode('overwrite').parquet(output)
