@@ -77,7 +77,7 @@ def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, limit=0):
             else:
                 vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).toDF(*headers).repartition(partitions)
         elif format == 'pq':
-            vcf_c = spark.read.parquet(vcf)
+            vcf_c = spark.read.parquet(vcf).repartition(partitions) 
         
         else:
             raise Exception("vcf format: " + format + " is not supported.")
