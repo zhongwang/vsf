@@ -16,7 +16,7 @@ from itertools import chain
 
 spark = SparkSession.builder.getOrCreate()
 
-def get_vcf_headers(vcf, numHeaderLines=1000):
+def get_vcf_headers(vcf, numHeaderLines=10000):
     """_read vcf file headers_
 
     Args:
@@ -36,7 +36,7 @@ def get_vcf_headers(vcf, numHeaderLines=1000):
             .split('\t')
     )
 
-def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, limit=0):
+def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, numHeaderLines=10000, limit=0):
     """_convert vcf to parquet_
 
     Args:
@@ -71,7 +71,7 @@ def vcf_to_parquet(vcfs, output='', format='pq', partitions=200, limit=0):
             # change letter chromosome IDs to numerical
             vcf_c = vcf_c.withColumn('chr', chr_mapping[vcf_c['chr']])
         elif format == 'gvcf':   
-            headers = get_vcf_headers(vcf)
+            headers = get_vcf_headers(vcf, numHeaderLines=numHeaderLines)
             if limit>0:
                 vcf_c = spark.read.csv(vcf, comment='#', sep='\t', header=None).limit(limit).toDF(*headers).repartition(partitions)
             else:
